@@ -23,6 +23,8 @@ import java.util.Queue;
 import ucar.ma2.Array;
 import static fr.cnes.export.jason.JASON.KEYWORDS_TO_EXTRACT;
 import static fr.cnes.export.jason.JASON.SURFACE_TYPE_MAPPING;
+import fr.cnes.export.settings.Consts;
+import fr.cnes.export.settings.Settings;
 import fr.cnes.geojson.GeoJsonWriter;
 import fr.cnes.geojson.geometry.LineString;
 import fr.cnes.geojson.object.Feature;
@@ -71,7 +73,6 @@ public class Processor implements Runnable {
             try {
                 this.metadata.process(uri);
                 save(this.metadata, uri);
-                //display(metadata);
                 synchronized (this.attributes) {
                     int nbFiles = (Integer) this.attributes.get("nbFiles");
                     nbFiles++;
@@ -153,8 +154,8 @@ public class Processor implements Runnable {
         feature.getProperties().put("variables", getVariables(metadata, KEYWORDS_TO_EXTRACT));
         feature.getForeignMembers().put("services", getServices(uri));
         FeatureCollection fc = writer.createFeatureCollection();
-        fc.getFeatures().add(feature);
-        try (FileOutputStream fos = new FileOutputStream(new File("/home/malapert/tmp/" + fileNameWithoutExtension + ".geojson"))) {
+        fc.getFeatures().add(feature);       
+        try (FileOutputStream fos = new FileOutputStream(new File(Settings.getInstance().getString(Consts.OUTPUT) + fileNameWithoutExtension + ".geojson"))) {
             String result = writer.toJson(fc);
             fos.write(result.getBytes());
         }

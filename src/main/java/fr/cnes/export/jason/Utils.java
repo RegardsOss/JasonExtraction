@@ -194,5 +194,23 @@ public class Utils {
         }
 
     }
+    
+    /**
+     * Checks whether the char sequence is empty.
+     * @param cs the char sequence
+     * @return True when the char sequence is empty otherwise False
+     */
+    public static boolean isEmpty(final CharSequence cs) {
+        return cs == null || cs.length() == 0;
+    }
+
+    /**
+     * Checks whether the char sequence is not empty.
+     * @param cs the char sequence
+     * @return True when the char sequence is not empty otherwise False
+     */    
+    public static boolean isNotEmpty(final CharSequence cs) {
+        return !isEmpty(cs);
+    }    
 
 }

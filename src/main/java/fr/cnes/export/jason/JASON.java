@@ -1,4 +1,5 @@
- /******************************************************************************
+/**
+ * ****************************************************************************
  * Copyright 2017 CNES - CENTRE NATIONAL d'ETUDES SPATIALES
  *
  * This file is part of Regards.
@@ -15,9 +16,11 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with Regards.  If not, see <http://www.gnu.org/licenses/>.
- ******************************************************************************/
+ *****************************************************************************
+ */
 package fr.cnes.export.jason;
 
+import fr.cnes.export.settings.Settings;
 import fr.cnes.export.source.Files;
 import fr.cnes.export.source.IFiles;
 import java.io.IOException;
@@ -26,6 +29,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -42,11 +46,18 @@ import org.restlet.resource.ClientResource;
  *
  * @author Jean-Christophe Malapert <jean-christophe.malapert@cnes.fr>
  */
-public class JASON {   
-    
+public class JASON {
+
     static {
-        ClientResource client = new ClientResource(LocalReference.createClapReference("class/log4.properties"));
-        //InputStream is = Starter.class.getResourceAsStream("logging.properties");
+        ClientResource client = new ClientResource(LocalReference.createClapReference("class/config.properties"));
+        Representation configurationFile = client.get();
+        try {
+            Settings.getInstance().setPropertiesFile(configurationFile.getStream());
+        } catch (IOException ex) {
+            java.util.logging.Logger.getAnonymousLogger().severe(ex.getMessage());
+        }
+
+        client = new ClientResource(LocalReference.createClapReference("class/log4.properties"));
         Representation logging = client.get();
         try {
             PropertyConfigurator.configure(logging.getStream());
@@ -56,7 +67,7 @@ public class JASON {
         } finally {
             client.release();
         }
-    }      
+    }
 
     private static final int THREAD_COUNT = 8;
 
@@ -78,9 +89,9 @@ public class JASON {
             put(3, "land. See Jason-1 User Handbook");
         }
     };
-    private static final Logger LOGGER = Logger.getLogger(JASON.class.getName());    
+    private static final Logger LOGGER = Logger.getLogger(JASON.class.getName());
     private final long startTime = System.currentTimeMillis();
-    private final Queue<String> dataQueue =  new ConcurrentLinkedQueue<>();
+    private final Queue<String> dataQueue = new ConcurrentLinkedQueue<>();
 
     public JASON() {
         LOGGER.info("Starting Jason program.");
@@ -140,13 +151,13 @@ public class JASON {
      * @return
      */
     private Map<String, Object> initProcessingAttributes() {
-        LOGGER.trace("Entering in initProcessingAttributes");        
+        LOGGER.trace("Entering in initProcessingAttributes");
         final Map<String, Object> attributes = new ConcurrentHashMap<>();
         attributes.put("isCounted", false);
         attributes.put("nbFiles", 0);
         attributes.put("nbTotalFiles", 0);
-        LOGGER.debug(attributes);        
-        LOGGER.trace("Exiting in initProcessingAttributes");                
+        LOGGER.debug(attributes);
+        LOGGER.trace("Exiting in initProcessingAttributes");
         return attributes;
     }
 
@@ -158,7 +169,7 @@ public class JASON {
      * @param dataQueue Files to processConvertion queue
      */
     private void countFilesToProcess(final IFiles fileIterator, final Map<String, Object> attributes, final Queue<String> dataQueue) {
-        LOGGER.trace("Entering in countFilesToProcess");        
+        LOGGER.trace("Entering in countFilesToProcess");
         new Thread() {
             @Override
             public void run() {
@@ -173,14 +184,14 @@ public class JASON {
                 attributes.put("isCounted", true);
                 attributes.put("nbTotalFiles", i);
                 LOGGER.debug(attributes);
-                LOGGER.info(i+" files to process");                        
+                LOGGER.info(i + " files to process");
             }
 
             private void displayMessage(int i) {
                 System.out.print("\r Indexing " + i + " files");
             }
         }.start();
-        LOGGER.trace("Exiting in countFilesToProcess");                
+        LOGGER.trace("Exiting in countFilesToProcess");
     }
 
     /**
@@ -190,13 +201,13 @@ public class JASON {
      * @throws InterruptedException
      */
     private void waitDataQueueContainsOneRecord(final Queue<String> dataQueue) throws InterruptedException {
-        LOGGER.trace("Entering in waitDataQueueContainsOneRecord");                
+        LOGGER.trace("Entering in waitDataQueueContainsOneRecord");
         while (dataQueue.isEmpty()) {
             // Wait for the thread to start writing into the queue
-            LOGGER.debug("Waiting 10s");                            
+            LOGGER.debug("Waiting 10s");
             Thread.sleep(10);
         }
-        LOGGER.trace("Exiting in waitDataQueueContainsOneRecord");                        
+        LOGGER.trace("Exiting in waitDataQueueContainsOneRecord");
     }
 
     /**
@@ -208,14 +219,14 @@ public class JASON {
      * @throws InterruptedException
      */
     private void processFilesInQueue(long startTime, final Queue<String> dataQueue, final Map<String, Object> attributes) throws InterruptedException {
-        LOGGER.trace("Entering in processFilesInQueue");                        
+        LOGGER.trace("Entering in processFilesInQueue");
         ExecutorService es = Executors.newFixedThreadPool(THREAD_COUNT);
         for (int i = 0; i < THREAD_COUNT; i++) {
             es.execute(new Processor(startTime, attributes, dataQueue));
         }
         es.shutdown();
         es.awaitTermination(1, TimeUnit.MINUTES);
-        LOGGER.trace("Exiting in processFilesInQueue");                                
+        LOGGER.trace("Exiting in processFilesInQueue");
     }
 
 }

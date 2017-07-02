@@ -239,7 +239,7 @@ public class Metadata {
         List<String> keywordsToProcess = new ArrayList<>();
         keywordsToProcess.addAll(keywords);
         keywordsToProcess.remove("time");
-        keywords.stream().forEach((keyword) -> {
+        keywordsToProcess.stream().forEach((keyword) -> {
             extractVariable(keyword, dataVariable, unitsVariable, descriptionVariable);
         });
         LOGGER.trace("Exiting in extractVariablesFromNetCdf");                                                
