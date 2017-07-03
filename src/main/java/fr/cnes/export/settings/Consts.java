@@ -25,6 +25,21 @@ package fr.cnes.export.settings;
  */
 public class Consts {
     
+    /**
+     * Application's name.
+     */
+    public static final String APP_NAME = "Starter.APP_NAME";
+    
+    /**
+     * Application's version.
+     */
+    public static final String VERSION = "Starter.VERSION";
+    
+    /**
+     * Application's copyright.
+     */
+    public static final String COPYRIGHT = "Starter.COPYRIGHT";    
+    
     public static final String OUTPUT = "Starter.output";
 
 }

@@ -16,20 +16,22 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with Regards.  If not, see <http://www.gnu.org/licenses/>.
- *****************************************************************************
+ * ****************************************************************************
  */
 package fr.cnes.export.jason;
 
+import fr.cnes.export.settings.Consts;
 import fr.cnes.export.settings.Settings;
 import fr.cnes.export.source.Files;
 import fr.cnes.export.source.IFiles;
+import gnu.getopt.Getopt;
+import gnu.getopt.LongOpt;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -134,9 +136,89 @@ public class JASON {
         LOGGER.trace("Exiting in start");
     }
 
+    private static void displayHelp() {
+        Settings settings = Settings.getInstance();
+        StringBuilder help = new StringBuilder();
+        help.append("------------ Help for DOI Server -----------\n");
+        help.append("\n");
+        help.append("Usage: java -jar ").append(settings.getString(Consts.APP_NAME)).append("-").append(settings.getString(Consts.VERSION)).append(".jar [OPTIONS]\n");
+        help.append("\n\n");
+        help.append("with OPTIONS:\n");
+        help.append("  -h|--help                    : This output\n");
+        help.append("  -d                           : Displays the configuration file\n");
+        help.append("  -f <path>                    : Loads the configuation file\n");
+        help.append("  -v|--version                 : DOI server version\n");
+        help.append("\n");
+        help.append("\n");
+        System.out.println(help.toString());
+    }
+    
+    /**
+     * Displays version.
+     */
+    private static void displayVersion() {
+        final Settings settings = Settings.getInstance();
+        final String appName = settings.getString(Consts.APP_NAME);
+        final String version = settings.getString(Consts.VERSION);
+        final String copyright = settings.getString(Consts.COPYRIGHT);
+        System.out.println(appName+" ("+copyright+") - Version:"+version+"\n");
+    }    
+
     public static void main(final String[] argv) throws URISyntaxException, IOException, Exception {
-        JASON jason = new JASON();
-        jason.start();
+        final Settings settings = Settings.getInstance();
+        final String progName = "java -jar " + settings.getString(Consts.APP_NAME) + "-" + settings.getString(Consts.VERSION) + ".jar";
+
+        int c;
+        String arg;
+
+        boolean hasOwnProperties = false;
+        LongOpt[] longopts = new LongOpt[2];
+        longopts[0] = new LongOpt("help", LongOpt.NO_ARGUMENT, null, 'h');
+        longopts[1] = new LongOpt("version", LongOpt.NO_ARGUMENT, null, 'v');
+
+        // 
+        Getopt g = new Getopt(progName, argv, "hvdf:", longopts);
+        //        
+        while ((c = g.getopt()) != -1) {
+            switch (c) {
+                case 'h':
+                    displayHelp();
+                    break;
+                //    
+                case 'd':
+                    settings.displayConfigFile();
+                    break;
+                case 'f':
+                    arg = g.getOptarg();
+                     {
+                        try {
+                            settings.setPropertiesFile(arg);
+                            hasOwnProperties = true;
+                        } catch (IOException ex) {
+                            LOGGER.info(ex.getMessage());
+                        }
+                    }
+                    break;
+                case 'v':
+                    displayVersion();
+                    break;                     
+                case '?':
+                    break; // getopt() already printed an error
+                default:
+                    System.err.println(String.format("getopt() returned {0}\n", c));
+
+            }
+        }
+
+        for (int i = g.getOptind(); i < argv.length; i++) {
+            System.err.println(String.format("Non option argv element: {0}\n", argv[i]));
+        }
+
+        if (argv.length == 0 || hasOwnProperties) {
+            JASON jason = new JASON();
+            jason.start();
+        }
+
     }
 
     /**
