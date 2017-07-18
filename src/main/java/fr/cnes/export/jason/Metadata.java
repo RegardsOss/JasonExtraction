@@ -182,7 +182,7 @@ public class Metadata {
             try {
                 Variable time = ncfile.findVariable("time");
                 CoordinateAxis1DTime axis = CoordinateAxis1DTime.factory(ncfile, (VariableDS) time, new Formatter());
-                int length = time.getElementSize();
+                int length = time.getDimensions().get(0).getLength();
                 String[] times = new String[length];
                 for (int i = 0; i < length; i++) {
                     CalendarDate date = axis.getCalendarDate(i);
