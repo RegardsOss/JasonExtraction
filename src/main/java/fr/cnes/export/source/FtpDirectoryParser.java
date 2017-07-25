@@ -21,10 +21,10 @@ package fr.cnes.export.source;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 
 /**
  *
@@ -38,6 +38,8 @@ public class FtpDirectoryParser {
     private final BufferedReader br;
     private final String[] cols = new String[4]; 
     private int totalLine = 0;
+    
+    private static final Logger LOGGER = Logger.getLogger(FtpDirectoryParser.class.getName());
 
     public FtpDirectoryParser(final Reader reader) throws IOException {
         this.br = new BufferedReader(reader); 
@@ -59,7 +61,7 @@ public class FtpDirectoryParser {
         try {
             readLine = this.br.readLine();
         } catch (IOException ex) {
-            Logger.getLogger(FtpDirectoryParser.class.getName()).log(Level.SEVERE, null, ex);           
+            LOGGER.log(Level.FATAL, null, ex);           
         }
         return (readLine != null) ? parseLine(readLine) : null;
     }
@@ -93,7 +95,7 @@ public class FtpDirectoryParser {
         try {
             this.br.close();
         } catch (IOException ex) {
-            Logger.getLogger(FtpDirectoryParser.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.log(Level.FATAL, null, ex);
         }
     }
 

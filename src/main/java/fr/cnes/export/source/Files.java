@@ -22,9 +22,10 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.apache.log4j.Level;
 import org.restlet.engine.Engine;
+import org.apache.log4j.Logger;
+
 
 /**
  *
@@ -35,10 +36,12 @@ public class Files implements IFiles {
     private final String url;   
     private final List<BrowseDirectory> deepBrowse = new ArrayList<>();    
     private int currentDeep = 0;
+    
+    private static final Logger LOGGER = Logger.getLogger(Files.class.getName());
 
     private Files(String url) throws URISyntaxException, IOException {
-        Engine.setLogLevel(Level.OFF);
-        Engine.setRestletLogLevel(Level.OFF);
+        Engine.setLogLevel(java.util.logging.Level.OFF);
+        Engine.setRestletLogLevel(java.util.logging.Level.OFF);
         this.url = url;       
         this.deepBrowse.add(new BrowseDirectory());
         this.deepBrowse.add(new BrowseDirectory());
@@ -48,7 +51,7 @@ public class Files implements IFiles {
         try {
             return new Files(url);
         } catch (URISyntaxException | IOException ex) {
-            Logger.getLogger(Files.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.log(Level.FATAL, null, ex);
             throw new Exception(ex);
         }
     }
@@ -58,7 +61,7 @@ public class Files implements IFiles {
         try {
             readDirectory("");
         } catch (URISyntaxException | IOException ex) {
-            Logger.getLogger(Files.class.getName()).log(Level.SEVERE, null, ex);
+            LOGGER.log(Level.FATAL, null, ex);
         }
         return (this.deepBrowse.get(0).getName() == null ) ? null : this.url+this.deepBrowse.get(0).getName() + this.deepBrowse.get(1).getName();
     }
@@ -70,17 +73,20 @@ public class Files implements IFiles {
     private void readDirectory(String fragment) throws URISyntaxException, IOException {
         BrowseDirectory browse = this.deepBrowse.get(currentDeep);
         if(browse.getStatus() == BrowseDirectoryStatus.START) {
+            LOGGER.log(Level.DEBUG, String.format("Starting reading %s%s", this.url, fragment));
             browse.setDirectory(new FtpDirectory(this.url+fragment));
             browse.setStatus(BrowseDirectoryStatus.RUNNING);
             readDirectory(fragment);
         } else if(browse.getStatus() == BrowseDirectoryStatus.RUNNING) {
             String nextRecord = getName(browse.getDirectory().getNextRecord());
             if (nextRecord == null) {
+                LOGGER.log(Level.DEBUG, String.format("%s%s has been read", this.url, fragment));
                 browse.setStatus(BrowseDirectoryStatus.END);
                 browse.setName(nextRecord);                
                 currentDeep = 0;
                 readDirectory("");
             } else if(currentDeep == 1) {
+                LOGGER.log(Level.DEBUG, String.format("Indexing file %s", nextRecord));
                 browse.setName(nextRecord);
             } else {                
                 browse.setName((currentDeep == 0) ? nextRecord+"/" : nextRecord);
@@ -88,8 +94,6 @@ public class Files implements IFiles {
                 deepBrowse.get(currentDeep).setStatus(BrowseDirectoryStatus.START);
                 readDirectory(browse.getName());                
             }
-        } 
-        
+        }         
     }
-
 }
