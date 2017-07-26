@@ -23,6 +23,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import org.restlet.representation.Representation;
 import org.restlet.resource.ClientResource;
+import org.restlet.resource.ResourceException;
 
 /**
  *
@@ -32,8 +33,10 @@ public class FtpDirectory implements Directory {
     
     private final ClientResource directory;
     private final FtpDirectoryParser ftp;
+    private final String url;
     
-    public FtpDirectory(String url) throws URISyntaxException, IOException {
+    public FtpDirectory(String url) throws URISyntaxException, IOException, ResourceException {
+        this.url = url;
         directory = new ClientResource(new URI(url)); 
         directory.setRetryAttempts(10);
         directory.setRetryOnError(true);
@@ -41,6 +44,11 @@ public class FtpDirectory implements Directory {
         Representation rep = directory.get();
         ftp = new FtpDirectoryParser(rep.getReader());        
     }
+    
+    @Override
+    public String getSourceDirectory() {
+        return this.url;
+    }    
     
     @Override
     public String[] getNextRecord() {

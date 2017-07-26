@@ -124,12 +124,7 @@ public class JASON {
             }
         };
 
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            @Override
-            public void run() {
-                LOGGER.info("interrupt received, killing server…");
-            }
-        });
+        Runtime.getRuntime().addShutdownHook(new ProcessorHook(dataQueue));
 
         LOGGER.info("Starts the client");
         client.start();

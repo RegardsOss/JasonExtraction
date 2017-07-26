@@ -16,22 +16,31 @@
  * You should have received a copy of the GNU General Public License
  * along with Regards.  If not, see <http://www.gnu.org/licenses/>.
  ******************************************************************************/
-package fr.cnes.export.source;
+package fr.cnes.export.jason;
+
+import fr.cnes.export.source.Files;
+import java.util.Queue;
+import org.apache.log4j.Logger;
 
 /**
  *
- * @author Jean-Christophe Malapert <jean-christophe.malapert@cnes.fr>
+ * @author Jean-Christophe Malapert (jean-christophe.malapert@cnes.fr)
  */
-public interface Directory {
+public class ProcessorHook extends Thread {
     
-    public String[] getNextRecord();
+    private static final Logger LOGGER = Logger.getLogger(ProcessorHook.class.getName());    
     
-    public boolean isDirectory();
+    private final Queue<String> dataQueue;
     
-    public String getSourceDirectory();
+    public ProcessorHook(final Queue<String> dataQueue) {
+        super();
+        this.dataQueue = dataQueue;
+    }
     
-    public int getTotalRecords();
-    
-    public void close();    
-    
+    @Override
+    public void run(){
+        if(!this.dataQueue.isEmpty()) {
+            LOGGER.info("interrupt received, killing program");            
+        }         
+    }    
 }

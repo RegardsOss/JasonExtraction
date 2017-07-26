@@ -25,6 +25,7 @@ import java.util.List;
 import org.apache.log4j.Level;
 import org.restlet.engine.Engine;
 import org.apache.log4j.Logger;
+import org.restlet.resource.ResourceException;
 
 
 /**
@@ -42,8 +43,7 @@ public class Files implements IFiles {
     private Files(String url) throws URISyntaxException, IOException {
         Engine.setLogLevel(java.util.logging.Level.OFF);
         Engine.setRestletLogLevel(java.util.logging.Level.OFF);
-        this.url = url;       
-        this.deepBrowse.add(new BrowseDirectory());
+        this.url = url;               
         this.deepBrowse.add(new BrowseDirectory());
     }
     
@@ -60,40 +60,60 @@ public class Files implements IFiles {
     public String nextFile() {
         try {
             readDirectory("");
-        } catch (URISyntaxException | IOException ex) {
+        } catch (URISyntaxException | IOException | ResourceException ex) {
             LOGGER.log(Level.FATAL, null, ex);
         }
-        return (this.deepBrowse.get(0).getName() == null ) ? null : this.url+this.deepBrowse.get(0).getName() + this.deepBrowse.get(1).getName();
+        String file  = (this.deepBrowse.isEmpty() ) ? null : this.deepBrowse.get(currentDeep).getName();
+        LOGGER.log(Level.INFO, String.format("Indexing file %s", file == null ? "is over" : file));        
+        return file;
     }
 
     private String getName(String[] record) {
         return (record == null) ? null : record[record.length - 1];
     }
 
-    private void readDirectory(String fragment) throws URISyntaxException, IOException {
+    private void readDirectory(String fragment) throws URISyntaxException, IOException, ResourceException {
+        if(this.deepBrowse.size() < currentDeep+1) {
+            this.deepBrowse.add(new BrowseDirectory());
+        }
         BrowseDirectory browse = this.deepBrowse.get(currentDeep);
-        if(browse.getStatus() == BrowseDirectoryStatus.START) {
-            LOGGER.log(Level.DEBUG, String.format("Starting reading %s%s", this.url, fragment));
-            browse.setDirectory(new FtpDirectory(this.url+fragment));
-            browse.setStatus(BrowseDirectoryStatus.RUNNING);
-            readDirectory(fragment);
-        } else if(browse.getStatus() == BrowseDirectoryStatus.RUNNING) {
-            String nextRecord = getName(browse.getDirectory().getNextRecord());
-            if (nextRecord == null) {
-                LOGGER.log(Level.DEBUG, String.format("%s%s has been read", this.url, fragment));
-                browse.setStatus(BrowseDirectoryStatus.END);
-                browse.setName(nextRecord);                
-                currentDeep = 0;
-                readDirectory("");
-            } else if(currentDeep == 1) {
-                LOGGER.log(Level.DEBUG, String.format("Indexing file %s", nextRecord));
-                browse.setName(nextRecord);
-            } else {                
-                browse.setName((currentDeep == 0) ? nextRecord+"/" : nextRecord);
-                currentDeep = 1;
-                deepBrowse.get(currentDeep).setStatus(BrowseDirectoryStatus.START);
-                readDirectory(browse.getName());                
-            }
-        }         
+        if(null != browse.getStatus()) switch (browse.getStatus()) {
+            case START:
+                browse.setDirectory(new FtpDirectory(this.url+fragment));
+                browse.setName(null);
+                browse.setStatus(BrowseDirectoryStatus.RUNNING);
+                LOGGER.log(Level.INFO, String.format("Start reading directory %s", fragment));                   
+                readDirectory(fragment);
+                break;
+            case RUNNING:
+                String[] nextRecord = browse.getDirectory().getNextRecord();
+                if(nextRecord == null) {
+                    browse.setName(null);
+                    browse.setStatus(BrowseDirectoryStatus.END);
+                    readDirectory("");
+                } else if (browse.getDirectory().isDirectory()) {
+                    String directoryName = getName(nextRecord)+"/";  
+                    browse.setName(directoryName);                    
+                    currentDeep++;
+                    readDirectory(directoryName);
+                } else {
+                    String fileName = getName(nextRecord);
+                    browse.setName(browse.getDirectory().getSourceDirectory()+fileName);
+                }
+                break;
+            case END:  
+                String parentDirectory = (currentDeep-1 >= 0) ? this.deepBrowse.get(currentDeep-1).getName() : "";
+                LOGGER.log(Level.INFO, String.format("Finish reading directory %s", parentDirectory));
+                browse.getDirectory().close();
+                this.deepBrowse.remove(currentDeep);
+                currentDeep--; 
+                if(currentDeep >= 0) {
+                    readDirectory("");
+                }
+                break;
+            
+        } else {
+            LOGGER.log(Level.FATAL, String.format("getStatus is null for %s", fragment));            
+        }      
     }
 }
