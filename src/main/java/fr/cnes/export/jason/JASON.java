@@ -38,6 +38,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PropertyConfigurator;
 import org.restlet.data.LocalReference;
@@ -45,8 +46,8 @@ import org.restlet.representation.Representation;
 import org.restlet.resource.ClientResource;
 
 /**
- *
- * @author Jean-Christophe Malapert <jean-christophe.malapert@cnes.fr>
+ * Main class to convert a part of the NCDF files from JASON mission to GeoJson.
+ * @author Jean-Christophe Malapert (jean-christophe.malapert@cnes.fr)
  */
 public class JASON {
 
@@ -95,11 +96,17 @@ public class JASON {
     private final long startTime = System.currentTimeMillis();
     private final Queue<String> dataQueue = new ConcurrentLinkedQueue<>();
 
+    /**
+     * Constructor.
+     */
     public JASON() {
         LOGGER.info("Starting Jason program.");
     }
 
-    public void processConvertion() {
+    /**
+     * Processes the process to transform a part of the NETCDF to GeoJSon.
+     */
+    public void processConversion() {
         LOGGER.trace("Entering in processConvertion");
         final String FTP_DIRECTORY = "ftp://avisoftp.cnes.fr/AVISO/pub/jason-1/gdr_e/";
         try {
@@ -114,16 +121,25 @@ public class JASON {
         LOGGER.trace("exiting in processConvertion");
     }
 
+    /**
+     * Starts the conversion.
+     */
     public void start() {
         LOGGER.trace("Entering in start");
 
+        /**
+         * Starts the conversion.
+         */
         final Thread client = new Thread() {
             @Override
             public void run() {
-                processConvertion();
+                processConversion();
             }
         };
 
+        /**
+         * Intercepts kill and shutdown event.
+         */
         Runtime.getRuntime().addShutdownHook(new ProcessorHook(dataQueue));
 
         LOGGER.info("Starts the client");
@@ -131,6 +147,9 @@ public class JASON {
         LOGGER.trace("Exiting in start");
     }
 
+    /**
+     * Displays help.
+     */
     private static void displayHelp() {
         Settings settings = Settings.getInstance();
         StringBuilder help = new StringBuilder();
@@ -147,7 +166,7 @@ public class JASON {
         help.append("\n");
         System.out.println(help.toString());
     }
-    
+
     /**
      * Displays version.
      */
@@ -156,9 +175,16 @@ public class JASON {
         final String appName = settings.getString(Consts.APP_NAME);
         final String version = settings.getString(Consts.VERSION);
         final String copyright = settings.getString(Consts.COPYRIGHT);
-        System.out.println(appName+" ("+copyright+") - Version:"+version+"\n");
-    }    
+        System.out.println(appName + " (" + copyright + ") - Version:" + version + "\n");
+    }
 
+    /**
+     * Main
+     * @param argv command line arguments
+     * @throws URISyntaxException
+     * @throws IOException
+     * @throws Exception 
+     */
     public static void main(final String[] argv) throws URISyntaxException, IOException, Exception {
         final Settings settings = Settings.getInstance();
         final String progName = "java -jar " + settings.getString(Consts.APP_NAME) + "-" + settings.getString(Consts.VERSION) + ".jar";
@@ -196,7 +222,7 @@ public class JASON {
                     break;
                 case 'v':
                     displayVersion();
-                    break;                     
+                    break;
                 case '?':
                     break; // getopt() already printed an error
                 default:
@@ -225,7 +251,7 @@ public class JASON {
      * <li>nbTotalFiles</li>
      * </ul>
      *
-     * @return
+     * @return map to monitor the processing
      */
     private Map<String, Object> initProcessingAttributes() {
         LOGGER.trace("Entering in initProcessingAttributes");
@@ -239,15 +265,15 @@ public class JASON {
     }
 
     /**
-     * Count files to processConvertion.
+     * Count files to processConversion.
      *
      * @param fileIterator File iterator
      * @param attributes attributes for the processing
-     * @param dataQueue Files to processConvertion queue
+     * @param dataQueue Files to processConversion queue
      */
     private void countFilesToProcess(final IFiles fileIterator, final Map<String, Object> attributes, final Queue<String> dataQueue) {
         LOGGER.trace("Entering in countFilesToProcess");
-        new Thread() {
+        Thread t = new Thread() {
             @Override
             public void run() {
                 String file;
@@ -267,7 +293,14 @@ public class JASON {
             private void displayMessage(int i) {
                 System.out.print("\r Indexing " + i + " files");
             }
-        }.start();
+        };
+        t.setUncaughtExceptionHandler((Thread myThread, Throwable ex) -> {
+            LOGGER.log(Level.ERROR, "A not recoverable error has been detected during the indexation, the program is shutting down", ex);
+            System.err.println("A not recoverable error has been detected during the indexation, the program is shutting down. Please look at the log file");
+            dataQueue.clear();
+            Thread.currentThread().interrupt();            
+        });
+        t.start();
         LOGGER.trace("Exiting in countFilesToProcess");
     }
 
@@ -295,7 +328,7 @@ public class JASON {
      * @param attributes attributes for processing
      * @throws InterruptedException
      */
-    private void processFilesInQueue(long startTime, final Queue<String> dataQueue, final Map<String, Object> attributes) throws InterruptedException {
+    private ExecutorService processFilesInQueue(long startTime, final Queue<String> dataQueue, final Map<String, Object> attributes) throws InterruptedException {
         LOGGER.trace("Entering in processFilesInQueue");
         ExecutorService es = Executors.newFixedThreadPool(THREAD_COUNT);
         for (int i = 0; i < THREAD_COUNT; i++) {
@@ -304,6 +337,7 @@ public class JASON {
         es.shutdown();
         es.awaitTermination(1, TimeUnit.MINUTES);
         LOGGER.trace("Exiting in processFilesInQueue");
+        return es;
     }
 
 }

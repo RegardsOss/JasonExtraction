@@ -82,10 +82,10 @@ public class Processor implements Runnable {
                 final long endProcessing = System.currentTimeMillis();
                 final float timeProcessing = (float) ((endProcessing-startProcessing) / 1000.0f);
                 LOGGER.info("processed file in "+timeProcessing+" s");
-            } catch (Exception ex) {
+            } catch (URISyntaxException | InterruptedException | IOException ex) {
                 final long endProcessing = System.currentTimeMillis();
                 final float timeProcessing = (float) ((endProcessing-startProcessing) / 1000.0f);                
-                LOGGER.error("Unable to process the file - "+timeProcessing+" s", ex);
+                LOGGER.error(String.format("Unable to process the file %s - %s s", uri, timeProcessing), ex);
             }
         }
     }

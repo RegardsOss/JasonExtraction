@@ -60,8 +60,8 @@ public class Files implements IFiles {
     public String nextFile() {
         try {
             readDirectory("");
-        } catch (URISyntaxException | IOException | ResourceException ex) {
-            LOGGER.log(Level.FATAL, null, ex);
+        } catch (URISyntaxException | IOException ex) {
+            LOGGER.log(Level.FATAL, null, ex);            
         }
         String file  = (this.deepBrowse.isEmpty() ) ? null : this.deepBrowse.get(currentDeep).getName();
         LOGGER.log(Level.INFO, String.format("Indexing file %s", file == null ? "is over" : file));        

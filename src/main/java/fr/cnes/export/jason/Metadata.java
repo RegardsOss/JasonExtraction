@@ -26,6 +26,7 @@ import java.util.Formatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.log4j.Level;
 import ucar.ma2.Array;
 import ucar.ma2.DataType;
 import ucar.nc2.Attribute;
@@ -78,10 +79,10 @@ public class Metadata {
     /**
      * Process NetCdf file.
      * @param uri location of the file
-     * @throws URISyntaxException
-     * @throws Exception 
+     * @throws URISyntaxException 
+     * @throws java.lang.InterruptedException 
      */
-    public void process(final String uri) throws URISyntaxException, Exception {
+    public void process(final String uri) throws URISyntaxException, InterruptedException {
         LOGGER.trace("Entering in process");        
         LOGGER.debug("Processing "+uri);        
         this.uri = uri;
@@ -89,16 +90,11 @@ public class Metadata {
             NetcdfFile file = NetcdfFile.openInMemory(new URI(uri));
             ncfile = new NetcdfDataset(file);
             extractVariablesFromNetCdf(keywordsToExtract, ncfile, data, units, description);
-        } catch (IOException ioe) {
-            if (null != ncfile) {
-                try {
-                    LOGGER.debug("Closing the file", ioe);        
-                    ncfile.close();
-                } catch (IOException ex) {
-                    LOGGER.error("Unable to close the NetCdf file", ex);                            
-                    throw new Exception(ex);
-                }
-            }
+        } catch (IOException|RuntimeException ioe) {
+            LOGGER.log(Level.INFO, String.format("Problem when loading %s", uri));
+            LOGGER.log(Level.INFO, "Try to reload the file in 10s");            
+            Thread.sleep(10000);
+            process(uri);
         }
         LOGGER.trace("Exiting in process");                
     }

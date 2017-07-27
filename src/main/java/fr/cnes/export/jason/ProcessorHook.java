@@ -18,7 +18,6 @@
  ******************************************************************************/
 package fr.cnes.export.jason;
 
-import fr.cnes.export.source.Files;
 import java.util.Queue;
 import org.apache.log4j.Logger;
 
@@ -40,7 +39,7 @@ public class ProcessorHook extends Thread {
     @Override
     public void run(){
         if(!this.dataQueue.isEmpty()) {
-            LOGGER.info("interrupt received, killing program");            
+            LOGGER.info("interrupt received, killing program"); 
         }         
     }    
 }
