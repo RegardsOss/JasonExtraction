@@ -73,6 +73,7 @@ public class JASON {
     }
 
     private static final int THREAD_COUNT = 8;
+    private static String FTP_DIRECTORY = "TBD";
 
     public static int processedFile = 0;
 
@@ -102,21 +103,30 @@ public class JASON {
     public JASON() {
         LOGGER.info("Starting Jason program.");
     }
+    
+    public JASON(final String FtpDir) {
+        LOGGER.info("Starting Jason program.");
+	this.FTP_DIRECTORY = FtpDir;
+    }
 
     /**
      * Processes the process to transform a part of the NETCDF to GeoJSon.
      */
     public void processConversion() {
+	final Settings settings = Settings.getInstance();
         LOGGER.trace("Entering in processConvertion");
-        final String FTP_DIRECTORY = "ftp://avisoftp.cnes.fr/AVISO/pub/jason-1/gdr_e/";
+	if (this.FTP_DIRECTORY == "TBD") {
+		this.FTP_DIRECTORY = settings.getString(Consts.FTP_DIRECTORY);
+	}
+	LOGGER.trace(String.format("FTP_DIRECTORY : %s", this.FTP_DIRECTORY));
         try {
-            IFiles fileIterator = Files.openDirectory(FTP_DIRECTORY);
+            IFiles fileIterator = Files.openDirectory(this.FTP_DIRECTORY);
             final Map<String, Object> attributes = initProcessingAttributes();
             countFilesToProcess(fileIterator, attributes, dataQueue);
             waitDataQueueContainsOneRecord(dataQueue);
             processFilesInQueue(startTime, dataQueue, attributes);
         } catch (Exception ex) {
-            LOGGER.error(String.format("Cannot process %s", FTP_DIRECTORY), ex);
+            LOGGER.error(String.format("Cannot process %s", this.FTP_DIRECTORY), ex);
         }
         LOGGER.trace("exiting in processConvertion");
     }
@@ -161,6 +171,7 @@ public class JASON {
         help.append("  -h|--help                    : This output\n");
         help.append("  -d                           : Displays the configuration file\n");
         help.append("  -f <path>                    : Loads the configuation file\n");
+        help.append("  -u <ftppath>                 : Specify the root URL to proceed\n");
         help.append("  -v|--version                 : DOI server version\n");
         help.append("\n");
         help.append("\n");
@@ -193,12 +204,14 @@ public class JASON {
         String arg;
 
         boolean hasOwnProperties = false;
+        boolean persoURL = false;
+        String persoURLval = " ";
         LongOpt[] longopts = new LongOpt[2];
         longopts[0] = new LongOpt("help", LongOpt.NO_ARGUMENT, null, 'h');
         longopts[1] = new LongOpt("version", LongOpt.NO_ARGUMENT, null, 'v');
 
         // 
-        Getopt g = new Getopt(progName, argv, "hvdf:", longopts);
+        Getopt g = new Getopt(progName, argv, "hvdfu:", longopts);
         //        
         while ((c = g.getopt()) != -1) {
             switch (c) {
@@ -220,6 +233,10 @@ public class JASON {
                         }
                     }
                     break;
+                case 'u':
+                    persoURLval = g.getOptarg();
+		    persoURL = true;
+                    break;
                 case 'v':
                     displayVersion();
                     break;
@@ -235,10 +252,16 @@ public class JASON {
             System.err.println(String.format("Non option argv element: {0}\n", argv[i]));
         }
 
-        if (argv.length == 0 || hasOwnProperties) {
-            JASON jason = new JASON();
-            jason.start();
-        }
+	if (persoURL) {
+		    JASON jason = new JASON(persoURLval);
+                    jason.start();
+
+	} else {
+        	if (argv.length == 0 || hasOwnProperties) {
+        	    JASON jason = new JASON();
+        	    jason.start();
+        	}
+	}
 
     }
 

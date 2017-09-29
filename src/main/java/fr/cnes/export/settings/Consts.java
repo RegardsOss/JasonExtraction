@@ -42,4 +42,5 @@ public class Consts {
     
     public static final String OUTPUT = "Starter.output";
 
+    public static final String FTP_DIRECTORY = "Starter.ftp_directory";
 }
