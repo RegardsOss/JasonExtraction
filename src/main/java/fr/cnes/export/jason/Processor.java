@@ -68,11 +68,20 @@ public class Processor implements Runnable {
     public void run() {
         while (!this.dataQueue.isEmpty()) {
             String uri = this.dataQueue.poll();
+	    String nomfic = Settings.getInstance().getString(Consts.OUTPUT) + uri.substring(uri.lastIndexOf('/') + 1, uri.length()-3)+".geojson";  // 3 = ".nc".length()
+	    File testfic =new File (nomfic);
+
             final long startProcessing = System.currentTimeMillis();
             LOGGER.info(String.format("Starting the processing of %s", uri));            
             try {
+	      if (testfic.exists())  {
+		    LOGGER.info(String.format("Skip existing file %s", nomfic));
+		    Thread.sleep(100);
+	        }
+	      else {
                 this.metadata.process(uri);
                 save(this.metadata, uri);
+	       }
                 synchronized (this.attributes) {
                     int nbFiles = (Integer) this.attributes.get("nbFiles");
                     nbFiles++;
