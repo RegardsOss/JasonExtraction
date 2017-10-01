@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>fr.cnes</groupId>
     <artifactId>JasonExtraction</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.3</version>
     <description>Extract variables from NetCDF files, available on the AVISO FTP and converts
         them to GeoJson.</description>
     <url>https://github.com/RegardsOss/JasonExtraction</url>
@@ -21,6 +21,13 @@
             <organizationUrl>https://cnes.fr</organizationUrl>
         </developer>
     </developers>    
+    <contributors>
+        <contributor>
+            <name>Manuel Pavy</name>
+            <organization>Centre National d'Etudes Spatiales (CNES)</organization>
+            <organizationUrl>https://cnes.fr</organizationUrl>
+        </contributor>
+    </contributors>    
     <repositories>
         <repository>
             <id>maven-boundlessgeo</id>

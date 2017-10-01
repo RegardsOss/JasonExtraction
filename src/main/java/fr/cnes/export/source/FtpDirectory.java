@@ -49,7 +49,7 @@ public class FtpDirectory implements Directory {
         directory.setNext(client);
         directory.setRetryAttempts(20);
         directory.setRetryOnError(true);
-        directory.setRetryDelay(10000);
+        directory.setRetryDelay(10000);        
         Representation rep = directory.get();
         ftp = new FtpDirectoryParser(rep.getReader());
     }

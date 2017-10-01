@@ -26,6 +26,7 @@ import fr.cnes.export.source.Files;
 import fr.cnes.export.source.IFiles;
 import gnu.getopt.Getopt;
 import gnu.getopt.LongOpt;
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -47,12 +48,15 @@ import org.restlet.resource.ClientResource;
 
 /**
  * Main class to convert a part of the NCDF files from JASON mission to GeoJson.
+ *
  * @author Jean-Christophe Malapert (jean-christophe.malapert@cnes.fr)
  */
 public class JASON {
 
     static {
-        ClientResource client = new ClientResource(LocalReference.createClapReference("class/config.properties"));
+        ClientResource client = new ClientResource(
+                LocalReference.createClapReference("class/config.properties")
+        );
         Representation configurationFile = client.get();
         try {
             Settings.getInstance().setPropertiesFile(configurationFile.getStream());
@@ -72,17 +76,23 @@ public class JASON {
         }
     }
 
-    private static final int THREAD_COUNT = 8;
-    private static String FTP_DIRECTORY = "TBD";
-
+    /**
+     * Number of processed file.
+     */
     public static int processedFile = 0;
 
+    /**
+     * List of variables to extract from netCDF.
+     */
     public static final List<String> KEYWORDS_TO_EXTRACT = Arrays.asList(
             "time", "lon", "lat", "surface_type", "range_numval_ku", "range_rms_ku",
             "range_ku", "rad_wet_tropo_corr", "iono_corr_alt_ku",
             "sig0_ku", "wind_speed_alt", "off_nadir_angle_wf_ku", "sig0_numval_ku",
             "sig0_rms_ku");
 
+    /**
+     * Mapping between values of SURFACE_TYPE variable and meaning.
+     */
     public static final Map<Integer, String> SURFACE_TYPE_MAPPING = new HashMap<Integer, String>() {
         private static final long serialVersionUID = 1L;
 
@@ -93,40 +103,84 @@ public class JASON {
             put(3, "land. See Jason-1 User Handbook");
         }
     };
+
+    /**
+     * Number of maximum threads to download data : {@value #THREAD_COUNT}
+     */
+    private static final int THREAD_COUNT = 8;
+
+    /**
+     * Logger.
+     */
     private static final Logger LOGGER = Logger.getLogger(JASON.class.getName());
+
+    /**
+     * URI where the program starts to download data.
+     */
+    private final String ftpDirectory;
+
+    /**
+     * Start time.
+     */
     private final long startTime = System.currentTimeMillis();
+
+    /**
+     * Queue that contains the list of files to download.
+     */
     private final Queue<String> dataQueue = new ConcurrentLinkedQueue<>();
 
     /**
-     * Constructor.
+     * Settings.
+     */
+    private final Settings settings = Settings.getInstance();
+
+    /**
+     * Constructor. The Ftp directory is initialized by the configuration file.
      */
     public JASON() {
         LOGGER.info("Starting Jason program.");
+        this.ftpDirectory = this.settings.getString(Consts.FTP_DIRECTORY);
+    }
+
+    /**
+     * Constructor with a ftp directory. The FTP directory is initialized by the
+     * command line.
+     *
+     * @param ftpDir FTP directory from which data is downloaded
+     */
+    public JASON(final String ftpDir) {
+        LOGGER.info("Starting Jason program with argument " + ftpDir);
+        this.ftpDirectory = ftpDir;
     }
     
-    public JASON(final String FtpDir) {
-        LOGGER.info("Starting Jason program.");
-	this.FTP_DIRECTORY = FtpDir;
-    }
+    /**
+     * Creates the output directory if it not exists.
+     */
+    private void createOutputDirectoryIfNeeded() {
+        final String outputString = Settings.getInstance().getString(Consts.OUTPUT);
+        final File outputDirectory = new File(outputString);
+        if (!outputDirectory.exists()) {
+            outputDirectory.mkdirs();
+            LOGGER.info(outputString + " directory has been created");
+        }
+        LOGGER.info("Data will be saved in " + outputString);
+    }    
 
     /**
      * Processes the process to transform a part of the NETCDF to GeoJSon.
      */
     public void processConversion() {
-	final Settings settings = Settings.getInstance();
         LOGGER.trace("Entering in processConvertion");
-	if (this.FTP_DIRECTORY == "TBD") {
-		this.FTP_DIRECTORY = settings.getString(Consts.FTP_DIRECTORY);
-	}
-	LOGGER.trace(String.format("FTP_DIRECTORY : %s", this.FTP_DIRECTORY));
+        LOGGER.trace(String.format("FTP_DIRECTORY : %s", this.ftpDirectory));        
+        createOutputDirectoryIfNeeded();
         try {
-            IFiles fileIterator = Files.openDirectory(this.FTP_DIRECTORY);
+            IFiles fileIterator = Files.openDirectory(this.ftpDirectory);
             final Map<String, Object> attributes = initProcessingAttributes();
             countFilesToProcess(fileIterator, attributes, dataQueue);
             waitDataQueueContainsOneRecord(dataQueue);
             processFilesInQueue(startTime, dataQueue, attributes);
         } catch (Exception ex) {
-            LOGGER.error(String.format("Cannot process %s", this.FTP_DIRECTORY), ex);
+            LOGGER.error(String.format("Cannot process %s", this.ftpDirectory), ex);
         }
         LOGGER.trace("exiting in processConvertion");
     }
@@ -191,10 +245,11 @@ public class JASON {
 
     /**
      * Main
+     *
      * @param argv command line arguments
      * @throws URISyntaxException
      * @throws IOException
-     * @throws Exception 
+     * @throws Exception
      */
     public static void main(final String[] argv) throws URISyntaxException, IOException, Exception {
         final Settings settings = Settings.getInstance();
@@ -202,15 +257,19 @@ public class JASON {
 
         int c;
         String arg;
-
-        boolean hasOwnProperties = false;
-        boolean persoURL = false;
-        String persoURLval = " ";
+        boolean hasOwnProperties = false;       
+        boolean hasCustomDirectoryURI = false;
+        
+        /**
+         * The custom URI from which the data download starts.
+         */
+        String customDirectoryURL = null;
+        
         LongOpt[] longopts = new LongOpt[2];
         longopts[0] = new LongOpt("help", LongOpt.NO_ARGUMENT, null, 'h');
         longopts[1] = new LongOpt("version", LongOpt.NO_ARGUMENT, null, 'v');
 
-        // 
+        //options
         Getopt g = new Getopt(progName, argv, "hvdfu:", longopts);
         //        
         while ((c = g.getopt()) != -1) {
@@ -224,18 +283,16 @@ public class JASON {
                     break;
                 case 'f':
                     arg = g.getOptarg();
-                     {
-                        try {
-                            settings.setPropertiesFile(arg);
-                            hasOwnProperties = true;
-                        } catch (IOException ex) {
-                            LOGGER.info(ex.getMessage());
-                        }
+                    try {
+                        settings.setPropertiesFile(arg);
+                        hasOwnProperties = true;
+                    } catch (IOException ex) {
+                        LOGGER.info(ex.getMessage());
                     }
                     break;
                 case 'u':
-                    persoURLval = g.getOptarg();
-		    persoURL = true;
+                    customDirectoryURL = g.getOptarg();
+                    hasCustomDirectoryURI = true;
                     break;
                 case 'v':
                     displayVersion();
@@ -252,16 +309,16 @@ public class JASON {
             System.err.println(String.format("Non option argv element: {0}\n", argv[i]));
         }
 
-	if (persoURL) {
-		    JASON jason = new JASON(persoURLval);
-                    jason.start();
-
-	} else {
-        	if (argv.length == 0 || hasOwnProperties) {
-        	    JASON jason = new JASON();
-        	    jason.start();
-        	}
-	}
+        final JASON jason;
+        if (hasCustomDirectoryURI) {
+            jason = new JASON(customDirectoryURL);
+            jason.start();
+        } else if (argv.length == 0 || hasOwnProperties) {
+            jason = new JASON();
+            jason.start();
+        } else {
+            // do nothing
+        }        
 
     }
 
@@ -294,9 +351,10 @@ public class JASON {
      * @param attributes attributes for the processing
      * @param dataQueue Files to processConversion queue
      */
-    private void countFilesToProcess(final IFiles fileIterator, final Map<String, Object> attributes, final Queue<String> dataQueue) {
+    private void countFilesToProcess(final IFiles fileIterator, 
+            final Map<String, Object> attributes, final Queue<String> dataQueue) {
         LOGGER.trace("Entering in countFilesToProcess");
-        Thread t = new Thread() {
+        final Thread t = new Thread() {
             @Override
             public void run() {
                 String file;
@@ -321,7 +379,7 @@ public class JASON {
             LOGGER.log(Level.ERROR, "A not recoverable error has been detected during the indexation, the program is shutting down", ex);
             System.err.println("A not recoverable error has been detected during the indexation, the program is shutting down. Please look at the log file");
             dataQueue.clear();
-            Thread.currentThread().interrupt();            
+            Thread.currentThread().interrupt();
         });
         t.start();
         LOGGER.trace("Exiting in countFilesToProcess");
@@ -333,11 +391,12 @@ public class JASON {
      * @param dataQueue files queue
      * @throws InterruptedException
      */
-    private void waitDataQueueContainsOneRecord(final Queue<String> dataQueue) throws InterruptedException {
+    private void waitDataQueueContainsOneRecord(final Queue<String> dataQueue) 
+            throws InterruptedException {
         LOGGER.trace("Entering in waitDataQueueContainsOneRecord");
         while (dataQueue.isEmpty()) {
             // Wait for the thread to start writing into the queue
-            LOGGER.debug("Waiting 10s");
+            LOGGER.debug("Waiting 10 ms");
             Thread.sleep(10);
         }
         LOGGER.trace("Exiting in waitDataQueueContainsOneRecord");
@@ -349,11 +408,15 @@ public class JASON {
      * @param startTime start time of the program
      * @param dataQueue files queue
      * @param attributes attributes for processing
+     * @return a thread pool that reuses a fixed number of threads operating off
+     * a shared unbounded queue
      * @throws InterruptedException
      */
-    private ExecutorService processFilesInQueue(long startTime, final Queue<String> dataQueue, final Map<String, Object> attributes) throws InterruptedException {
+    private ExecutorService processFilesInQueue(long startTime, 
+            final Queue<String> dataQueue, final Map<String, Object> attributes) 
+            throws InterruptedException {
         LOGGER.trace("Entering in processFilesInQueue");
-        ExecutorService es = Executors.newFixedThreadPool(THREAD_COUNT);
+        final ExecutorService es = Executors.newFixedThreadPool(THREAD_COUNT);
         for (int i = 0; i < THREAD_COUNT; i++) {
             es.execute(new Processor(startTime, attributes, dataQueue));
         }

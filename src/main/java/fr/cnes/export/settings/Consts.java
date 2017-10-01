@@ -40,7 +40,18 @@ public class Consts {
      */
     public static final String COPYRIGHT = "Starter.COPYRIGHT";    
     
+    /**
+     * The output directory.
+     */
     public static final String OUTPUT = "Starter.output";
 
+    /**
+     * The data source where data is taken.
+     */
     public static final String FTP_DIRECTORY = "Starter.ftp_directory";
+    
+    /**
+     * Displays the Geojson in a pretty way.
+     */
+    public static final String PRETTY_DISPLAY = "Starter.pretty_display";
 }
